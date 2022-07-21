@@ -17,7 +17,6 @@
 import argparse
 import json
 import os
-import sys
 
 from jinja2 import Template
 
@@ -54,22 +53,8 @@ if __name__ == "__main__":
         type=str,
         help="folder with the JSON artifacts",
     )
-    parser.add_argument(
-        "-o",
-        "--outfile",
-        type=str,
-        default="",
-        help="file to write the output to",
-    )
 
     args = parser.parse_args()
-
-    output = sys.stdout
-    if args.outfile != "":
-        output = args.outfile
-
-    print("out file:")
-    print(output)
 
     hits_by_test = {}
 
@@ -85,13 +70,11 @@ if __name__ == "__main__":
 
     row = Template("|{{ name }} | {{ hits }}|")
 
-    with open(output, mode="a") as fout:
-        print("""# E2E Test summary
+    print("""# E2E Test summary
 
 ## total hits by test
 | test | hits |
-|------|------|
-        """, file=fout)
+|------|------|""")
 
-        for testname in hits_by_test:
-            print(row.render(name=testname, hits=hits_by_test[testname]), file=fout)
+    for testname in hits_by_test:
+        print(row.render(name=testname, hits=hits_by_test[testname]))

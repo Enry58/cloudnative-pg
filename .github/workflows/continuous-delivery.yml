@@ -640,7 +640,7 @@ jobs:
         run: |
           set +x
           echo 'computing stuff'
-          echo python .github/summarize-test-results.py --dir test-artifacts -o $GITHUB_STEP_SUMMARY
+          python .github/summarize-test-results.py --dir test-artifacts >> $GITHUB_STEP_SUMMARY
       - name: Summary
         run: echo '### Hello world! :rocket:' >> $GITHUB_STEP_SUMMARY
 
