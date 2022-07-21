@@ -65,6 +65,8 @@ if __name__ == "__main__":
     total_fails = 0
     failed_k8s_by_test = {}
     failed_pg_by_test = {}
+    total_by_matrix = {}
+    failed_by_matrix = {}
 
     dir_listing = os.listdir(args.dir)
     for f in dir_listing:
@@ -89,18 +91,47 @@ if __name__ == "__main__":
                 failed_k8s_by_test[name].append(testResults["k8s_version"])
                 failed_pg_by_test[name].append(testResults["postgres_version"])
 
+            matrix = testResults["matrix_id"]
+            if matrix not in total_by_matrix:
+                total_by_matrix[matrix] = 0
+            if matrix not in failed_by_matrix:
+                failed_by_matrix[matrix] = 0
+
+            total_by_matrix[matrix] = 1 + total_by_matrix[matrix]
+            if is_failed(testResults):
+                failed_by_matrix[matrix] = 1 + failed_by_matrix[matrix]
+
+    summary = {
+        "total_run": total_runs,
+        "total_failed": total_fails,
+        "failed_by_test": fails_by_test,
+        "total_by_test": total_by_test,
+        "failed_by_matrix": failed_by_matrix,
+        "total_by_matrix": total_by_matrix,
+        "failed_k8s_by_test": failed_k8s_by_test,
+        "failed_pg_by_test": failed_pg_by_test,
+    }
+
 
     tpl = """E2E Test summary
 
-Total test combinations failed: {{ total_failed }} out of {{ total_run }} run.
+Total test combinations failed: {{ summary.total_failed }} out of {{ summary.total_run }} run.
+
+## Failures by matrix branch
+
+| matrix branch | failed | runs |
+|------|------|-------|
+{%- for matrix in summary.total_by_matrix %}
+| {{ matrix }} | {{ summary.failed_by_matrix[matrix] }} | {{ summary.total_by_matrix[matrix] }} |
+{%- endfor %}
 
 ## Failures by test
 
-| test | fails | runs | failed K8s | failed PG |
+| fails | runs | failed K8s | failed PG | test |
 |------|------|-------|---------|-------|
-{%- for t in runs %}
-| {{ t }} | {{ fails[t] }} | {{ runs[t] }} | {{ failed_k8s[t] }} | {{ failed_pg[t] }} |
+{%- for t in summary.total_by_test %}
+| {{ summary.failed_by_test[t] }} | {{ summary.total_by_test[t] }} | {{ summary.failed_k8s_by_test[t] }} | {{ summary.failed_pg_by_test[t] }} | {{ t }} |
 {%- endfor %}"""
 
     out = Template(tpl)
-    print(out.render(runs=total_by_test, fails=fails_by_test, total_failed=total_fails, total_run=total_runs, failed_k8s=failed_k8s_by_test, failed_pg=failed_pg_by_test))
+    print(out.render(summary=summary))
