@@ -42,6 +42,9 @@ from jinja2 import Template
 }
 """
 
+def is_failed(e2e_test):
+    return e2e_test["state"] != "passed" and e2e_test["state"] != "skipped"
+
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(
@@ -56,7 +59,12 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    hits_by_test = {}
+    total_by_test = {}
+    fails_by_test = {}
+    total_runs = 0
+    total_fails = 0
+    failed_k8s_by_test = {}
+    failed_pg_by_test = {}
 
     dir_listing = os.listdir(args.dir)
     for f in dir_listing:
@@ -64,17 +72,35 @@ if __name__ == "__main__":
         with open(path) as json_file:
             testResults = json.load(json_file)
             name = testResults["name"]
-            if name not in hits_by_test:
-                hits_by_test[name] = 0
-            hits_by_test[name] = 1 + hits_by_test[name]
+            if name not in total_by_test:
+                total_by_test[name] = 0
+            if name not in fails_by_test:
+                fails_by_test[name] = 0
+            if name not in failed_k8s_by_test:
+                failed_k8s_by_test[name] = []
+            if name not in failed_pg_by_test:
+                failed_pg_by_test[name] = []
 
-    row = Template("|{{ name }} | {{ hits }}|")
+            total_runs = 1 + total_runs
+            total_by_test[name] = 1 + total_by_test[name]
+            if is_failed(testResults):
+                fails_by_test[name] = 1 + fails_by_test[name]
+                total_fails = 1 + total_fails
+                failed_k8s_by_test[name].append(testResults["k8s_version"])
+                failed_pg_by_test[name].append(testResults["postgres_version"])
 
-    print("""# E2E Test summary
 
-## total hits by test
-| test | hits |
-|------|------|""")
+    tpl = """E2E Test summary
 
-    for testname in hits_by_test:
-        print(row.render(name=testname, hits=hits_by_test[testname]))
+Total test combinations failed: {{ total_failed }} out of {{ total_run }} run.
+
+## Failures by test
+
+| test | fails | runs | failed K8s | failed PG |
+|------|------|-------|---------|-------|
+{%- for t in runs %}
+| {{ t }} | {{ fails[t] }} | {{ runs[t] }} | {{ failed_k8s[t] }} | {{ failed_pg[t] }} |
+{%- endfor %}"""
+
+    out = Template(tpl)
+    print(out.render(runs=total_by_test, fails=fails_by_test, total_failed=total_fails, total_run=total_runs, failed_k8s=failed_k8s_by_test, failed_pg=failed_pg_by_test))
